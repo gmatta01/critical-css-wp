@@ -1,0 +1,59 @@
+/* Critical CSS for WP — Admin Styles */
+
+/* Progress card */
+.ccss-progress-card {
+	box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* Status badges in pages table */
+.ccss-status-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: .85em;
+	font-weight: 500;
+}
+.ccss-status-ok {
+	background: #edfaef;
+	color: #1e7e34;
+}
+.ccss-status-none {
+	background: #fef3e0;
+	color: #b86e00;
+}
+.ccss-status-error {
+	background: #fdeaea;
+	color: #b71c1c;
+}
+
+/* Error message in table */
+.ccss-error-msg {
+	color: #b71c1c;
+	font-size: .85em;
+}
+
+/* Table */
+.ccss-pages-table th,
+.ccss-pages-table td {
+	vertical-align: middle;
+}
+
+/* Filters row */
+.ccss-filters select {
+	margin-right: 8px;
+}
+
+/* Progress text during generation */
+.ccss-inline-progress {
+	color: #2271b1;
+	font-style: italic;
+	margin-left: 8px;
+}
+
+/* Spinner row alignment */
+.ccss-row-spinner {
+	float: none;
+	margin: 0 0 0 6px;
+	vertical-align: middle;
+}
+
