@@ -456,6 +456,29 @@ class Ccss_Plugin {
 	}
 }
 
+/**
+ * Handle manual update check button.
+ */
+function ccss_handle_check_updates() {
+	if ( ! isset( $_GET['ccss_check_updates'] )  ) {
+		return;
+	}
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	// Clear the cached release data so the next check fetches fresh.
+	Ccss_Updater::clear_cache();
+
+	// Force WordPress to check for plugin updates right now.
+	wp_update_plugins();
+
+	wp_safe_redirect( add_query_arg( 'ccss_updates_done', '1', wp_get_referer() ) );
+	exit;
+}
+add_action( 'admin_init', 'ccss_handle_check_updates' );
+
 function ccss_plugin() {
 	static $instance = null;
 	if ( null === $instance ) {

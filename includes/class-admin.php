@@ -16,7 +16,6 @@ class Ccss_Admin {
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'add_menu_pages' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'admin_init', array( $this, 'handle_check_updates' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( CCSS_PLUGIN_FILE ), array( $this, 'plugin_action_links' ) );
 		add_action( 'update_option_ccss_settings', array( $this, 'refresh_schedule' ) );
@@ -167,10 +166,7 @@ class Ccss_Admin {
 						</td>
 					</tr>
 				</table>
-				<div style="display:flex;gap:8px;align-items:center;">
-				<?php submit_button( '', 'primary', 'submit', false, array( 'id' => 'ccss-save-settings' ) ); ?>
-					<a href="<?php echo esc_url( add_query_arg( 'ccss_check_updates', '1', admin_url( 'admin.php?page=critical-css-wp-settings' ) ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Check for Plugin Updates', 'critical-css-wp' ); ?></a>
-				</div>
+				<?php submit_button(); ?>
 			</form>
 		</div>
 		<?php
@@ -608,32 +604,15 @@ class Ccss_Admin {
 	// ─── Plugin Links ──────────────────────────────────────────────────
 
 	public function plugin_action_links( $links ) {
-		$settings_link = sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=critical-css-wp' ) ), __( 'Critical CSS', 'critical-css-wp' ) );
-		array_unshift( $links, $settings_link );
+		$settings_link = sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=critical-css-wp-settings' ) ), __( 'Settings', 'critical-css-wp' ) );
+		$update_link = sprintf( '<a href="%s">%s</a>', esc_url( add_query_arg( 'ccss_check_updates', '1', admin_url( 'admin.php?page=critical-css-wp-settings' ) ) ), __( 'Check for Updates', 'critical-css-wp' ) );
+		array_unshift( $links, $settings_link, $update_link );
 		return $links;
 	}
 
 	public function refresh_schedule() {
 		$cron = new Ccss_Cron( new Ccss_Api() );
 		$cron->schedule_event();
-	}
-
-	/**
-	 * Handle manual update check button.
-	 */
-	public function handle_check_updates() {
-		if ( ! isset( $_GET['ccss_check_updates'] ) || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		// Clear the cached release data so the next check fetches fresh.
-		Ccss_Updater::clear_cache();
-
-		// Force WordPress to check for plugin updates right now.
-		wp_update_plugins();
-
-		wp_safe_redirect( add_query_arg( 'ccss_updates_done', '1', wp_get_referer() ) );
-		exit;
 	}
 }
 
