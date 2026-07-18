@@ -32,6 +32,7 @@ require_once CCSS_PLUGIN_DIR . 'includes/class-admin.php';
 require_once CCSS_PLUGIN_DIR . 'includes/class-cron.php';
 require_once CCSS_PLUGIN_DIR . 'includes/class-frontend.php';
 require_once CCSS_PLUGIN_DIR . 'includes/class-compatibility.php';
+require_once CCSS_PLUGIN_DIR . 'includes/class-updater.php';
 
 /**
  * Allow WordPress HTTP API to reach the configured API host.
@@ -404,6 +405,8 @@ class Ccss_Plugin {
 	private $frontend;
 	/** @var Ccss_Compatibility */
 	private $compatibility;
+	/** @var Ccss_Updater */
+	private $updater;
 
 	public function __construct() {
 		$this->api = new Ccss_Api();
@@ -411,11 +414,13 @@ class Ccss_Plugin {
 		$this->cron = new Ccss_Cron( $this->api );
 		$this->frontend = new Ccss_Frontend();
 		$this->compatibility = new Ccss_Compatibility();
+		$this->updater = new Ccss_Updater( CCSS_PLUGIN_FILE );
 
 		$this->admin->init();
 		$this->cron->init();
 		$this->frontend->init();
 		$this->compatibility->init();
+		$this->updater->init();
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 	}
 
