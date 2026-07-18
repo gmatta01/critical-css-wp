@@ -69,11 +69,10 @@ class Ccss_Api {
 	}
 
 	/**
-	 * Generate critical CSS from HTML + CSS via chunked processing.
+	 * Generate critical CSS from rendered page HTML + full CSS.
 	 *
-	 * Divides CSS into chunks that fit the API's payload limit,
-	 * sends each chunk separately, then merges all critical CSS results.
-	 * This ensures ALL stylesheets are processed for maximum accuracy.
+	 * Sends the complete HTML and CSS to the API in one request.
+	 * The API handles large payloads — no chunking needed.
 	 *
 	 * @param string $html     Rendered page HTML.
 	 * @param string $all_css  Full combined CSS content.
