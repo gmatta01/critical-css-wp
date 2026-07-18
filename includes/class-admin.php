@@ -78,7 +78,12 @@ class Ccss_Admin {
 	public function sanitize_settings( $input ) {
 		$sanitized = array();
 		$sanitized['api_url']         = esc_url_raw( $input['api_url'] ?? ccss_get_option( 'api_url' ) );
-		$sanitized['api_key']         = sanitize_text_field( $input['api_key'] ?? '' );
+		// If API key field is left empty, keep the existing value (it's write-only).
+		if ( ! empty( $input['api_key'] ) ) {
+			$sanitized['api_key'] = sanitize_text_field( $input['api_key'] );
+		} else {
+			$sanitized['api_key'] = ccss_get_option( 'api_key' );
+		}
 		$sanitized['public_base_url']  = esc_url_raw( $input['public_base_url'] ?? '', array( 'http', 'https' ) );
 		$sanitized['post_types']       = array_filter( array_map( 'sanitize_key', (array) ( $input['post_types'] ?? array() ) ) );
 		$sanitized['interval']         = in_array( $input['interval'] ?? 'daily', array( 'hourly', 'twicedaily', 'daily', 'weekly' ), true ) ? $input['interval'] : 'daily';
@@ -106,29 +111,16 @@ class Ccss_Admin {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><?php esc_html_e( 'API Key', 'critical-css-wp' ); ?> <?php if ( ! empty( $settings['api_key'] ) ) : ?><span class="ccss-indicator" title="<?php esc_attr_e( 'API key is configured', 'critical-css-wp' ); ?>">🔑</span><?php else : ?><span class="ccss-indicator ccss-indicator-missing" title="<?php esc_attr_e( 'API key not set', 'critical-css-wp' ); ?>">❌</span><?php endif; ?></th>
+						<th scope="row"><?php esc_html_e( 'API Key', 'critical-css-wp' ); ?> <?php if ( ! empty( $settings['api_key'] ) ) : ?><span class="ccss-indicator" title="<?php esc_attr_e( 'API key is configured', 'critical-css-wp' ); ?>" style="cursor:default;">🔑</span><?php else : ?><span class="ccss-indicator ccss-indicator-missing" title="<?php esc_attr_e( 'API key not set', 'critical-css-wp' ); ?>" style="cursor:default;">❌</span><?php endif; ?></th>
 						<td>
 							<div style="display:flex;align-items:center;gap:6px;">
 								<input type="password" id="ccss_api_key" name="ccss_settings[api_key]"
-									value="<?php echo esc_attr( $settings['api_key'] ?? '' ); ?>" class="regular-text" autocomplete="off" />
-								<button type="button" id="ccss_toggle_key" class="button button-secondary" style="flex-shrink:0;" title="<?php esc_attr_e( 'Show/hide API key', 'critical-css-wp' ); ?>">👁</button>
+									value="" placeholder="<?php echo ! empty( $settings['api_key'] ) ? esc_attr__( 'API key is set — leave blank to keep it', 'critical-css-wp' ) : esc_attr__( 'Enter API key', 'critical-css-wp' ); ?>"
+									class="regular-text" autocomplete="off" />
 							</div>
-							<p class="description"><?php esc_html_e( 'API key sent as X-API-Key header on every request.', 'critical-css-wp' ); ?></p>
+							<p class="description"><?php esc_html_e( 'API key sent as X-API-Key header. Write-only: set it here, it stays in the DB.', 'critical-css-wp' ); ?></p>
 						</td>
 					</tr>
-					<script>
-					(function(){
-						var input = document.getElementById('ccss_api_key');
-						var btn = document.getElementById('ccss_toggle_key');
-						if (input && btn) {
-							btn.addEventListener('click', function(){
-								var show = input.type === 'password';
-								input.type = show ? 'text' : 'password';
-								btn.textContent = show ? '🙈' : '👁';
-							});
-						}
-					})();
-					</script>
 					<tr>
 						<th scope="row"><label for="ccss_public_base_url"><?php esc_html_e( 'Public Site URL', 'critical-css-wp' ); ?></label></th>
 						<td>
