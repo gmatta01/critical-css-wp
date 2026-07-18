@@ -166,10 +166,7 @@ class Ccss_Admin {
 						</td>
 					</tr>
 				</table>
-				<div style="display:flex;gap:8px;align-items:center;">
-				<?php submit_button( '', 'primary', 'submit', false, array( 'id' => 'ccss-save-settings' ) ); ?>
-					<a href="<?php echo esc_url( add_query_arg( 'ccss_check_updates', '1', admin_url( 'admin.php?page=critical-css-wp-settings' ) ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Check for Plugin Updates', 'critical-css-wp' ); ?></a>
-				</div>
+				<?php submit_button(); ?>
 			</form>
 		</div>
 		<?php
@@ -607,8 +604,9 @@ class Ccss_Admin {
 	// ─── Plugin Links ──────────────────────────────────────────────────
 
 	public function plugin_action_links( $links ) {
-		$settings_link = sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=critical-css-wp' ) ), __( 'Critical CSS', 'critical-css-wp' ) );
-		array_unshift( $links, $settings_link );
+		$settings_link = sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=critical-css-wp-settings' ) ), __( 'Settings', 'critical-css-wp' ) );
+		$update_link = sprintf( '<a href="%s">%s</a>', esc_url( add_query_arg( 'ccss_check_updates', '1', admin_url( 'admin.php?page=critical-css-wp-settings' ) ) ), __( 'Check for Updates', 'critical-css-wp' ) );
+		array_unshift( $links, $settings_link, $update_link );
 		return $links;
 	}
 

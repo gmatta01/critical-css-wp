@@ -61,8 +61,8 @@ class Ccss_Updater {
 			return false;
 		}
 
-		// Cache for 5 minutes (testing).
-		set_transient( 'ccss_github_release', $release, 5 * MINUTE_IN_SECONDS );
+		// Cache for 3 hours (avoids hitting GitHub rate limits).
+		set_transient( 'ccss_github_release', $release, 3 * HOUR_IN_SECONDS );
 
 		return $release;
 	}
