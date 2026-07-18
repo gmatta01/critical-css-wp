@@ -55,6 +55,7 @@ add_filter( 'http_request_host_is_external', 'ccss_allow_api_host', 10, 3 );
 function ccss_get_settings() {
 	$defaults = array(
 		'api_url'         => 'http://100.94.29.96:3001/critical/simple',
+		'api_key'         => '',
 		'public_base_url' => '',
 		'post_types'      => array( 'post', 'page' ),
 		'interval'        => 'daily',
@@ -76,13 +77,9 @@ function ccss_get_settings() {
  * @return string Inline API endpoint URL.
  */
 function ccss_get_inline_api_url() {
-	$api_url = ccss_get_option( 'api_url', 'http://100.94.29.96:3001/critical/simple' );
-	$inline_url = preg_replace( '#/critical(/simple)?$#', '/critical', $api_url );
-	if ( $inline_url === $api_url && false === strpos( $api_url, '/critical' ) ) {
-		// If the URL doesn't end with /critical at all, append it.
-		$inline_url = rtrim( $api_url, '/' ) . '/critical';
-	}
-	return $inline_url;
+	// Use the same API URL for both URL-based and inline modes.
+	// The API handles both payload shapes at the same endpoint.
+	return ccss_get_option( 'api_url', 'http://100.94.29.96:3001/critical/simple' );
 }
 
 function ccss_get_option( $key, $default = '' ) {
@@ -419,6 +416,7 @@ class Ccss_Plugin {
 	public static function activate() {
 		$defaults = array(
 			'api_url'         => 'http://100.94.29.96:3001/critical/simple',
+			'api_key'         => '',
 			'public_base_url' => '',
 			'post_types'      => array( 'post', 'page' ),
 			'interval'        => 'daily',
