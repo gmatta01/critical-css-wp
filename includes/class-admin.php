@@ -78,6 +78,7 @@ class Ccss_Admin {
 	public function sanitize_settings( $input ) {
 		$sanitized = array();
 		$sanitized['api_url']         = esc_url_raw( $input['api_url'] ?? ccss_get_option( 'api_url' ) );
+		$sanitized['api_key']         = sanitize_text_field( $input['api_key'] ?? '' );
 		$sanitized['public_base_url']  = esc_url_raw( $input['public_base_url'] ?? '', array( 'http', 'https' ) );
 		$sanitized['post_types']       = array_filter( array_map( 'sanitize_key', (array) ( $input['post_types'] ?? array() ) ) );
 		$sanitized['interval']         = in_array( $input['interval'] ?? 'daily', array( 'hourly', 'twicedaily', 'daily', 'weekly' ), true ) ? $input['interval'] : 'daily';
@@ -102,6 +103,14 @@ class Ccss_Admin {
 							<input type="url" id="ccss_api_url" name="ccss_settings[api_url]"
 								value="<?php echo esc_attr( $settings['api_url'] ); ?>" class="regular-text" />
 							<p class="description"><?php esc_html_e( 'The endpoint that returns critical CSS. Change this when your API location moves.', 'critical-css-wp' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ccss_api_key"><?php esc_html_e( 'API Key', 'critical-css-wp' ); ?></label></th>
+						<td>
+							<input type="text" id="ccss_api_key" name="ccss_settings[api_key]"
+								value="<?php echo esc_attr( $settings['api_key'] ?? '' ); ?>" class="regular-text" />
+							<p class="description"><?php esc_html_e( 'API key sent as X-API-Key header on every request.', 'critical-css-wp' ); ?></p>
 						</td>
 					</tr>
 					<tr>
