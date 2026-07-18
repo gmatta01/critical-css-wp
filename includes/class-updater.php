@@ -75,21 +75,26 @@ class Ccss_Updater {
 	 */
 	public function check_update( $transient ) {
 		if ( empty( $transient->checked ) ) {
+			ccss_log( 'Updater: no checked plugins, skipping' );
 			return $transient;
 		}
 
 		$release = $this->fetch_latest_release();
 		if ( false === $release ) {
+			ccss_log( 'Updater: fetch_latest_release failed' );
 			return $transient;
 		}
 
 		$tag    = ltrim( $release['tag_name'], 'v' );
 		$current = CCSS_VERSION;
+		ccss_log( 'Updater: tag=' . $tag . ' current=' . $current );
 
 		if ( version_compare( $tag, $current, '<=' ) ) {
+			ccss_log( 'Updater: no newer version available' );
 			return $transient;
 		}
 
+		ccss_log( 'Updater: injecting update v' . $tag . ' into transient' );
 		$transient->response[ $this->basename ] = (object) array(
 			'id'          => 'critical-css-wp',
 			'slug'        => dirname( $this->basename ),
