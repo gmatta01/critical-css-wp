@@ -86,14 +86,13 @@ class Ccss_Api {
 	}
 
 	/**
-	 * Generate critical CSS from rendered page HTML + CSS content.
+	 * Generate critical CSS from provided HTML + CSS content.
 	 *
-	 * Sends the HTML and CSS to the /critical endpoint which returns
-	 * the critical (above-the-fold) CSS. Used by the chunked processor
-	 * for each chunk, and can also be called directly for simple pages.
+	 * Sends the HTML and CSS to the API endpoint which returns
+	 * the critical (above-the-fold) CSS.
 	 *
-	 * @param string $html Rendered page HTML.
-	 * @param string $css  Stylesheet content.
+	 * @param string $html Page HTML.
+	 * @param string $css  Full stylesheet content.
 	 * @return array{success: bool, css?: string, error?: string}
 	 */
 	public function request_css_from_html( $html, $css ) {
