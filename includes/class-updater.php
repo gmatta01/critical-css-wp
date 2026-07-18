@@ -107,11 +107,12 @@ class Ccss_Updater {
 		// Archive URL (tag-based). Folder still includes the version suffix and must be renamed.
 		$archive_url = 'https://github.com/gmatta01/critical-css-wp/archive/refs/tags/' . $release['tag_name'] . '.zip';
 
-		ccss_log( 'Updater: injecting update v' . $tag . ' into transient' );
+		$correct_plugin = self::SLUG . '/' . self::MAIN_FILE;
+		ccss_log( 'Updater: injecting update v' . $tag . ' key=' . $this->basename . ' plugin=' . $correct_plugin );
 		$transient->response[ $this->basename ] = (object) array(
 			'id'          => self::SLUG,
 			'slug'        => self::SLUG,
-			'plugin'      => $this->basename,
+			'plugin'      => $correct_plugin,
 			'new_version' => $tag,
 			'url'         => $release['html_url'],
 			'package'     => $archive_url,
