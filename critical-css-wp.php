@@ -160,12 +160,12 @@ function ccss_make_url_absolute( $rel, $base ) {
 }
 
 /**
- * Render a post's page and collect its HTML + full CSS content.
+ * Capture a post's rendered HTML and full CSS for inline processing.
  *
- * Fetches the rendered page via loopback, extracts all stylesheet
- * URLs from the HTML, downloads their content, and returns both
- * the HTML and combined CSS. This allows the API to process
- * critical CSS without needing to reach the domain itself.
+ * Used as fallback when the API cannot reach the site directly (local dev).
+ * Fetches the rendered page via loopback, extracts all stylesheet URLs
+ * from the HTML, downloads their content, and returns both the HTML and
+ * combined CSS. The API processes these without needing to reach the domain.
  *
  * @param int $post_id Post ID.
  * @return array{html: string, css: string}|false HTML & CSS on success.
@@ -268,12 +268,12 @@ function ccss_capture_page_html_and_css( $post_id ) {
 /**
  * Generate critical CSS for a post.
  *
- * Primary method: renders the page locally and sends HTML+CSS to the API
- * (inline mode). This eliminates the need for the API to reach the site's
- * domain — works with local dev (.local), behind firewalls, Tailscale, etc.
+ * Primary method: sends the page URL to the API for Chromium rendering.
+ * Works for any publicly accessible domain.
  *
- * Falls back to URL-based generation if page rendering fails (e.g. loopback
- * not supported on some hosts).
+ * Falls back to inline HTML+CSS capture for local dev environments
+ * (.local domains, Tailscale, firewalled networks) where the API
+ * cannot reach the site directly.
  *
  * @param int  $post_id Post ID.
  * @param bool $force   Whether to regenerate even if CSS exists.
@@ -307,37 +307,42 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 	}
 
 	$api  = new Ccss_Api();
-	$used_inline = false;
+	$used_url = false;
 
-	// Primary method: render locally, send HTML+CSS in chunks (processes ALL stylesheets).
-	$page_data = ccss_capture_page_html_and_css( $post_id );
-	if ( false !== $page_data ) {
-		ccss_log( 'Attempting chunked inline generation for ' . $url . ' (' . round( strlen( $page_data['html'] ) / 1024, 1 ) . ' KB HTML, ' . round( strlen( $page_data['css'] ) / 1024, 1 ) . ' KB CSS)' );
-		$result = $api->request_css_chunked( $page_data['html'], $page_data['css'] );
-		if ( $result['success'] ) {
-			$used_inline = true;
-			ccss_log( 'Generated critical CSS via chunked method for ' . $url );
-		} else {
-			ccss_log( 'Chunked method failed for ' . $url . ': ' . $result['error'] );
+	// Primary method: send the page URL to the API (fast, works for public domains).
+	$api_url_to_send = $url;
+	$public_base = ccss_get_option( 'public_base_url', '' );
+	if ( ! empty( $public_base ) ) {
+		$site_url = get_option( 'siteurl' );
+		if ( $site_url && 0 === strpos( $url, $site_url ) ) {
+			$api_url_to_send = $public_base . substr( $url, strlen( $site_url ) );
 		}
-	} else {
-		ccss_log( 'Page capture failed for ' . $url . ', skipping inline method' );
 	}
 
-	// Fallback: send URL to API (works for production/public domains).
-	if ( ! $used_inline ) {
-		ccss_log( 'Chunked method failed — falling back to URL-based generation for ' . $url );
+	ccss_log( 'Attempting URL-based generation for ' . $api_url_to_send );
+	$result = $api->request_css( $api_url_to_send );
+	if ( $result['success'] ) {
+		$used_url = true;
+		ccss_log( 'Generated critical CSS via URL method for ' . $url );
+	}
 
-		// Rewrite URL if a public base URL is configured.
-		$public_base = ccss_get_option( 'public_base_url', '' );
-		if ( ! empty( $public_base ) ) {
-			$site_url = get_option( 'siteurl' );
-			if ( $site_url && 0 === strpos( $url, $site_url ) ) {
-				$url = $public_base . substr( $url, strlen( $site_url ) );
+	// Fallback: render locally and send HTML+CSS (for local dev, .local domains, etc.).
+	if ( ! $used_url ) {
+		ccss_log( 'URL method failed for ' . $url . ': ' . $result['error'] . ' — trying inline capture' );
+
+		$page_data = ccss_capture_page_html_and_css( $post_id );
+		if ( false !== $page_data ) {
+			ccss_log( 'Attempting inline generation for ' . $url . ' (' . round( strlen( $page_data['html'] ) / 1024, 1 ) . ' KB HTML, ' . round( strlen( $page_data['css'] ) / 1024, 1 ) . ' KB CSS)' );
+			$result = $api->request_css_chunked( $page_data['html'], $page_data['css'] );
+			if ( $result['success'] ) {
+				$used_url = true;
+				ccss_log( 'Generated critical CSS via inline method for ' . $url );
+			} else {
+				ccss_log( 'Inline method also failed for ' . $url . ': ' . $result['error'] );
 			}
+		} else {
+			ccss_log( 'Page capture failed for ' . $url . ', giving up' );
 		}
-
-		$result = $api->request_css( $url );
 	}
 
 	if ( ! $result['success'] ) {
