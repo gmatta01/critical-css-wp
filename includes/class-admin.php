@@ -16,7 +16,6 @@ class Ccss_Admin {
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'add_menu_pages' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'admin_init', array( $this, 'handle_check_updates' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( CCSS_PLUGIN_FILE ), array( $this, 'plugin_action_links' ) );
 		add_action( 'update_option_ccss_settings', array( $this, 'refresh_schedule' ) );
@@ -616,24 +615,6 @@ class Ccss_Admin {
 	public function refresh_schedule() {
 		$cron = new Ccss_Cron( new Ccss_Api() );
 		$cron->schedule_event();
-	}
-
-	/**
-	 * Handle manual update check button.
-	 */
-	public function handle_check_updates() {
-		if ( ! isset( $_GET['ccss_check_updates'] ) || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		// Clear the cached release data so the next check fetches fresh.
-		Ccss_Updater::clear_cache();
-
-		// Force WordPress to check for plugin updates right now.
-		wp_update_plugins();
-
-		wp_safe_redirect( add_query_arg( 'ccss_updates_done', '1', wp_get_referer() ) );
-		exit;
 	}
 }
 
