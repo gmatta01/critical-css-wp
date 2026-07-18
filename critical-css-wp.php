@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Critical CSS for WP
  * Description: Generate and inject critical CSS for published WordPress content using a configurable API endpoint.
- * Version: 0.2.7
+ * Version: 0.2.8
  * Author: OpenAI
  * License: GPL-2.0-or-later
  * Text Domain: critical-css-wp
@@ -24,7 +24,7 @@ if ( ! defined( 'CCSS_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'CCSS_VERSION' ) ) {
-	define( 'CCSS_VERSION', '0.2.7' );
+	define( 'CCSS_VERSION', '0.2.8' );
 }
 
 require_once CCSS_PLUGIN_DIR . 'includes/class-api.php';
@@ -333,7 +333,7 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 		$page_data = ccss_capture_page_html_and_css( $post_id );
 		if ( false !== $page_data ) {
 			ccss_log( 'Attempting inline generation for ' . $url . ' (' . round( strlen( $page_data['html'] ) / 1024, 1 ) . ' KB HTML, ' . round( strlen( $page_data['css'] ) / 1024, 1 ) . ' KB CSS)' );
-			$result = $api->request_css_chunked( $page_data['html'], $page_data['css'] );
+			$result = $api->request_css_chunked( $page_data['html'], $page_data['css'], $api_url_to_send );
 			if ( $result['success'] ) {
 				$used_url = true;
 				ccss_log( 'Generated critical CSS via inline method for ' . $url );
