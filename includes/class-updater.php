@@ -94,6 +94,11 @@ class Ccss_Updater {
 			return $transient;
 		}
 
+		// Build a direct download URL from the tag name.
+		// GitHub's zipball URLs create unpredictable folder names.
+		// Archive URLs create consistent folders that WordPress can rename.
+		$archive_url = 'https://github.com/gmatta01/critical-css-wp/archive/refs/tags/' . $release['tag_name'] . '.zip';
+
 		ccss_log( 'Updater: injecting update v' . $tag . ' into transient' );
 		$transient->response[ $this->basename ] = (object) array(
 			'id'          => 'critical-css-wp',
@@ -101,7 +106,7 @@ class Ccss_Updater {
 			'plugin'      => $this->basename,
 			'new_version' => $tag,
 			'url'         => $release['html_url'],
-			'package'     => $release['zipball_url'],
+			'package'     => $archive_url,
 			'icons'       => array(),
 			'banners'     => array(),
 			'requires'    => '6.0',
@@ -133,15 +138,18 @@ class Ccss_Updater {
 			return $result;
 		}
 
+		$tag = ltrim( $release['tag_name'], 'v' );
+		$archive_url = 'https://github.com/gmatta01/critical-css-wp/archive/refs/tags/' . $release['tag_name'] . '.zip';
+
 		return (object) array(
 			'name'          => 'Critical CSS for WP',
 			'slug'          => dirname( $this->basename ),
-			'version'       => ltrim( $release['tag_name'], 'v' ),
+			'version'       => $tag,
 			'author'        => '<a href="https://github.com/gmatta01">gmatta01</a>',
 			'homepage'      => $release['html_url'],
 			'requires'      => '6.0',
 			'tested'        => '6.7',
-			'download_link' => $release['zipball_url'],
+			'download_link' => $archive_url,
 			'sections'      => array(
 				'description' => $release['body'] ?: 'Critical CSS for WordPress.',
 				'changelog'   => $release['body'] ?: '',
