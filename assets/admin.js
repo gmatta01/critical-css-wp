@@ -73,27 +73,42 @@
 	function generateBulk(postIds) {
 		$genSelected.prop('disabled', true);
 		$genAll.prop('disabled', true);
-		$bulkProg.show().text(CCSS_Admin.i18n.generating);
 
-		$.post(CCSS_Admin.ajax_url, {
-			action:      'ccss_bulk_generate',
-			_ccss_nonce: CCSS_Admin.nonce,
-			post_ids:    postIds
-		}, function (resp) {
-			$genSelected.prop('disabled', false);
-			$genAll.prop('disabled', false);
-			$bulkProg.text(resp.success ? resp.data.message : (resp.data.message || CCSS_Admin.i18n.failed));
+		var total = postIds.length;
+		var queue = postIds.slice();
 
-			if (resp.success && resp.data.stats) {
-				updateProgressCard(resp.data.stats);
+		function processNext() {
+			if (queue.length === 0) {
+				// All done.
+				$genSelected.prop('disabled', false);
+				$genAll.prop('disabled', false);
+				$bulkProg.text('✅ Complete — ' + total + ' of ' + total + ' pages.');
+				setTimeout(function () { window.location.reload(); }, 2000);
+				return;
 			}
-			// Reload page to refresh the table fully after bulk.
-			setTimeout(function () { window.location.reload(); }, 1500);
-		}).fail(function () {
-			$genSelected.prop('disabled', false);
-			$genAll.prop('disabled', false);
-			$bulkProg.text(CCSS_Admin.i18n.failed);
-		});
+
+			var nextId = queue.shift();
+			$bulkProg.show().text(CCSS_Admin.i18n.generating + ' (' + (total - queue.length) + ' / ' + total + ')...');
+
+			$.post(CCSS_Admin.ajax_url, {
+				action:      'ccss_bulk_generate',
+				_ccss_nonce: CCSS_Admin.nonce,
+				single_id:   nextId,
+				remaining:   queue,
+				total:       total
+			}, function (resp) {
+				if (resp.success && resp.data.stats) {
+					updateProgressCard(resp.data.stats);
+				}
+				// Short pause to let the API breathe.
+				setTimeout(processNext, 500);
+			}).fail(function () {
+				// Continue anyway — don't stop the whole batch for one failure.
+				setTimeout(processNext, 500);
+			});
+		}
+
+		processNext();
 	}
 
 	// ── Events ──

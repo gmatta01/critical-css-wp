@@ -224,7 +224,13 @@ function ccss_capture_page_html_and_css( $post_id ) {
 	preg_match_all( '/<link[^>]+rel=["\']stylesheet["\'][^>]*href=["\']([^"\']+)["\']/i', $html, $link_matches );
 	$css_urls = array_unique( $link_matches[1] );
 
+	ccss_log( 'Capture: found ' . count( $css_urls ) . ' stylesheets on ' . $url );
+
+	$downloaded = 0;
+	$total_css  = 0;
+
 	foreach ( $css_urls as $css_url ) {
+
 		$css_url = ccss_make_url_absolute( $css_url, $url );
 
 		$css_response = wp_remote_get( $css_url, array(
@@ -233,9 +239,14 @@ function ccss_capture_page_html_and_css( $post_id ) {
 		) );
 
 		if ( ! is_wp_error( $css_response ) && 200 === wp_remote_retrieve_response_code( $css_response ) ) {
-			$css .= wp_remote_retrieve_body( $css_response ) . "\n";
+			$sheet_css = wp_remote_retrieve_body( $css_response );
+			$css .= $sheet_css . "\n";
+			$total_css += strlen( $sheet_css );
+			$downloaded++;
 		}
 	}
+
+	ccss_log( 'Capture: downloaded ' . $downloaded . ' stylesheets, total CSS: ' . round( $total_css / 1024, 1 ) . ' KB' );
 
 	// Inline styles in <style> tags.
 	preg_match_all( '/<style[^>]*>([^<]+)<\/style>/i', $html, $inline_matches );
@@ -243,6 +254,7 @@ function ccss_capture_page_html_and_css( $post_id ) {
 		foreach ( $inline_matches[1] as $inline_css ) {
 			$css .= trim( $inline_css ) . "\n";
 		}
+		ccss_log( 'Capture: added ' . count( $inline_matches[1] ) . ' inline style blocks' );
 	}
 
 	if ( empty( $css ) ) {
@@ -300,19 +312,24 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 	$api  = new Ccss_Api();
 	$used_inline = false;
 
-	// Primary method: render locally, send HTML+CSS.
+	// Primary method: render locally, send HTML+CSS in chunks (processes ALL stylesheets).
 	$page_data = ccss_capture_page_html_and_css( $post_id );
 	if ( false !== $page_data ) {
-		$result = $api->request_css_from_html( $page_data['html'], $page_data['css'] );
+		ccss_log( 'Attempting chunked inline generation for ' . $url . ' (' . round( strlen( $page_data['html'] ) / 1024, 1 ) . ' KB HTML, ' . round( strlen( $page_data['css'] ) / 1024, 1 ) . ' KB CSS)' );
+		$result = $api->request_css_chunked( $page_data['html'], $page_data['css'] );
 		if ( $result['success'] ) {
 			$used_inline = true;
-			ccss_log( 'Generated critical CSS via inline method for ' . $url );
+			ccss_log( 'Generated critical CSS via chunked method for ' . $url );
+		} else {
+			ccss_log( 'Chunked method failed for ' . $url . ': ' . $result['error'] );
 		}
+	} else {
+		ccss_log( 'Page capture failed for ' . $url . ', skipping inline method' );
 	}
 
 	// Fallback: send URL to API (works for production/public domains).
 	if ( ! $used_inline ) {
-		ccss_log( 'Falling back to URL-based generation for ' . $url );
+		ccss_log( 'Chunked method failed — falling back to URL-based generation for ' . $url );
 
 		// Rewrite URL if a public base URL is configured.
 		$public_base = ccss_get_option( 'public_base_url', '' );
@@ -374,6 +391,17 @@ function ccss_clear_cache_for_url( $url ) {
 }
 
 class Ccss_Plugin {
+	/** @var Ccss_Api */
+	private $api;
+	/** @var Ccss_Admin */
+	private $admin;
+	/** @var Ccss_Cron */
+	private $cron;
+	/** @var Ccss_Frontend */
+	private $frontend;
+	/** @var Ccss_Compatibility */
+	private $compatibility;
+
 	public function __construct() {
 		$this->api = new Ccss_Api();
 		$this->admin = new Ccss_Admin( $this->api );
