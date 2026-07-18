@@ -40,7 +40,7 @@ require_once CCSS_PLUGIN_DIR . 'includes/class-updater.php';
  */
 function ccss_allow_api_host( $allow, $host, $url ) {
 	$api_urls = array(
-		ccss_get_option( 'api_url', 'http://100.94.29.96:3001/critical/simple' ),
+		ccss_get_option( 'api_url', '' ),
 		ccss_get_inline_api_url(),
 	);
 	foreach ( $api_urls as $api_url ) {
@@ -55,7 +55,7 @@ add_filter( 'http_request_host_is_external', 'ccss_allow_api_host', 10, 3 );
 
 function ccss_get_settings() {
 	$defaults = array(
-		'api_url'         => 'http://100.94.29.96:3001/critical/simple',
+		'api_url'         => '',
 		'api_key'         => '',
 		'public_base_url' => '',
 		'post_types'      => array( 'post', 'page' ),
@@ -71,16 +71,14 @@ function ccss_get_settings() {
 /**
  * Get the inline API endpoint (for HTML+CSS processing).
  *
- * Derives the URL from the configured api_url by replacing
- * /critical/simple with /critical. Falls back to the default
- * inline endpoint if parsing fails.
+ * Uses the same URL as the main API endpoint.
  *
  * @return string Inline API endpoint URL.
  */
 function ccss_get_inline_api_url() {
 	// Use the same API URL for both URL-based and inline modes.
 	// The API handles both payload shapes at the same endpoint.
-	return ccss_get_option( 'api_url', 'http://100.94.29.96:3001/critical/simple' );
+	return ccss_get_option( 'api_url', '' );
 }
 
 function ccss_get_option( $key, $default = '' ) {
@@ -426,7 +424,7 @@ class Ccss_Plugin {
 
 	public static function activate() {
 		$defaults = array(
-			'api_url'         => 'http://100.94.29.96:3001/critical/simple',
+			'api_url'         => '',
 			'api_key'         => '',
 			'public_base_url' => '',
 			'post_types'      => array( 'post', 'page' ),

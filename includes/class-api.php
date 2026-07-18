@@ -8,7 +8,7 @@ class Ccss_Api {
 	 * API endpoint for URL-based generation (legacy).
 	 */
 	public function request_css( $url ) {
-		$api_url = ccss_get_option( 'api_url', 'http://100.94.29.96:3001/critical/simple' );
+		$api_url = ccss_get_option( 'api_url', '' );
 		if ( empty( $api_url ) ) {
 			return array(
 				'success' => false,
