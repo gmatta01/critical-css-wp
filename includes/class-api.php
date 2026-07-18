@@ -79,11 +79,11 @@ class Ccss_Api {
 	 * @param string $all_css  Full combined CSS content.
 	 * @return array{success: bool, css?: string, error?: string}
 	 */
-	public function request_css_chunked( $html, $all_css, $skip_delay = false ) {
+	public function request_css_chunked( $html, $all_css, $url = '', $skip_delay = false ) {
 		// Send full HTML+CSS in one shot. The API returns critical CSS
 		// regardless of payload size. No chunking needed — sending HTML
 		// with every chunk was causing oversized payloads.
-		return $this->request_css_from_html( $html, $all_css );
+		return $this->request_css_from_html( $html, $all_css, $url );
 	}
 
 	/**
@@ -96,7 +96,7 @@ class Ccss_Api {
 	 * @param string $css  Full stylesheet content.
 	 * @return array{success: bool, css?: string, error?: string}
 	 */
-	public function request_css_from_html( $html, $css ) {
+	public function request_css_from_html( $html, $css, $url = '' ) {
 		$api_url = ccss_get_inline_api_url();
 		if ( empty( $api_url ) ) {
 			return array(
@@ -120,14 +120,16 @@ class Ccss_Api {
 			$headers['X-API-Key'] = $api_key;
 		}
 
+		$body = array( 'html' => $html, 'css' => $css );
+		if ( ! empty( $url ) ) {
+			$body['url'] = $url;
+		}
+
 		$response = wp_remote_post(
 			$api_url,
 			array(
 				'headers'   => $headers,
-				'body'      => wp_json_encode( array(
-					'html' => $html,
-					'css'  => $css,
-				) ),
+				'body'      => wp_json_encode( $body ),
 				'timeout'   => 180,
 				'sslverify' => false,
 			)
