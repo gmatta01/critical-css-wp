@@ -27,7 +27,7 @@ class Ccss_Api {
 			array(
 				'headers'   => $headers,
 				'body'      => wp_json_encode( array( 'url' => $url ) ),
-				'timeout'   => 60,
+				'timeout'   => 180,
 				'sslverify' => false,
 			)
 		);
@@ -128,7 +128,7 @@ class Ccss_Api {
 					'html' => $html,
 					'css'  => $css,
 				) ),
-				'timeout'   => 60,
+				'timeout'   => 180,
 				'sslverify' => false,
 			)
 		);
