@@ -455,9 +455,29 @@ class Ccss_Admin {
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'critical-css-wp' ) ) );
 		}
 
+		// Single-page mode: generate one post at a time, return stats + progress.
+		// This is called repeatedly by the JS for each page in bulk.
+		$single_id = isset( $_POST['single_id'] ) ? absint( wp_unslash( $_POST['single_id'] ) ) : 0;
+		$remaining = isset( $_POST['remaining'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['remaining'] ) ) : array();
+		$total_bulk = isset( $_POST['total'] ) ? absint( wp_unslash( $_POST['total'] ) ) : 0;
+
+		if ( $single_id ) {
+			$result = ccss_generate_for_post( $single_id, true );
+			$done = $total_bulk - count( $remaining );
+
+			wp_send_json_success( array(
+				'message'       => sprintf( __( 'Generated: %d of %d', 'critical-css-wp' ), $done, $total_bulk ),
+				'done'          => $done,
+				'total'         => $total_bulk,
+				'remaining'     => array_values( $remaining ),
+				'stats'         => $this->get_stats(),
+				'last_generated' => $result ? ccss_get_css_size_kb( $single_id ) . ' KB' : 'failed',
+			) );
+		}
+
+		// Legacy fallback: process all in one request (for backwards compat).
 		$post_ids = isset( $_POST['post_ids'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['post_ids'] ) ) : array();
 		if ( empty( $post_ids ) ) {
-			// Generate all if none provided.
 			$enabled  = ccss_get_enabled_post_types();
 			$post_ids = get_posts( array(
 				'post_type'      => $enabled,

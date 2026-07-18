@@ -7,8 +7,9 @@ class Ccss_Frontend {
 
 	public function init() {
 		add_action( 'wp_head', array( $this, 'output_inline_css' ), 0 );
-		add_action( 'wp_enqueue_scripts', array( $this, 'prepare_style_deferral' ), 100 );
+		add_action( 'wp_print_styles', array( $this, 'prepare_style_deferral' ), PHP_INT_MAX );
 		add_filter( 'style_loader_tag', array( $this, 'maybe_defer_style' ), 10, 4 );
+		add_action( 'wp_footer', array( $this, 'output_debug_info' ), 999 );
 	}
 
 	public function output_inline_css() {
@@ -27,6 +28,34 @@ class Ccss_Frontend {
 		}
 
 		printf( '<style id="critical-css-inline" data-post-id="%d">%s</style>', (int) $post_id, $css );
+	}
+
+	/**
+	 * Output debug info when ?ccss_debug=1 is in the URL.
+	 */
+	public function output_debug_info() {
+		if ( ! isset( $_GET['ccss_debug'] ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$post_id = get_the_ID();
+		if ( ! $post_id ) {
+			return;
+		}
+
+		$has_css  = ! empty( get_post_meta( $post_id, '_critical_css', true ) );
+		$gen_time = (int) get_post_meta( $post_id, '_critical_css_generated_at', true );
+		$css_size = ccss_get_css_size_kb( $post_id );
+		$deferred = count( $this->defer_handles );
+
+		echo "\n<!-- Critical CSS Debug:\n";
+		echo '  Post ID: ' . (int) $post_id . "\n";
+		echo '  Critical CSS: ' . ( $has_css ? 'YES (' . $css_size . ' KB)' : 'NO' ) . "\n";
+		if ( $gen_time ) {
+			echo '  Generated: ' . esc_html( human_time_diff( $gen_time, time() ) ) . " ago\n";
+		}
+		echo '  Styles deferred: ' . (int) $deferred . "\n";
+		echo "-->\n";
 	}
 
 	public function prepare_style_deferral() {
@@ -60,11 +89,24 @@ class Ccss_Frontend {
 			return $tag;
 		}
 
-		if ( 'all' !== $media ) {
+		// Only defer styles with media="all" or no explicit media.
+		if ( '' !== $media && 'all' !== $media ) {
 			return $tag;
 		}
 
-		return str_replace( 'media="all"', 'media="print" onload="this.media=\'all\'"', $tag );
+		// Add media="print" with onload to make it non-render-blocking.
+		if ( false !== strpos( $tag, "media='all'" ) ) {
+			$deferred = str_replace( "media='all'", "media='print' onload=\"this.media='all'\"", $tag );
+		} elseif ( false !== strpos( $tag, 'media="all"' ) ) {
+			$deferred = str_replace( 'media="all"', 'media="print" onload="this.media=\'all\'"', $tag );
+		} else {
+			$deferred = str_replace( '<link ', '<link media="print" onload="this.media=\'all\'" ', $tag );
+		}
+
+		// Noscript fallback for users without JavaScript.
+		$deferred .= "\n" . '<noscript><link rel="stylesheet" href="' . esc_url( $href ) . '" media="all" /></noscript>';
+
+		return $deferred;
 	}
 
 	private function should_defer_handle( $handle ) {
