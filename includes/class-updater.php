@@ -28,6 +28,7 @@ class Ccss_Updater {
 	public function init() {
 		add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_update' ) );
 		add_filter( 'plugins_api', array( $this, 'plugin_info' ), 20, 3 );
+		add_filter( 'upgrader_source_selection', array( $this, 'fix_update_source' ), 10, 4 );
 	}
 
 	/**
@@ -106,7 +107,9 @@ class Ccss_Updater {
 			'plugin'      => $this->basename,
 			'new_version' => $tag,
 			'url'         => $release['html_url'],
-			'package'     => $archive_url,
+			// Use the API zipball URL. GitHub's archive URLs include version in folder name.
+		// The upgrader_source_selection filter fixes the folder name regardless.
+		'package'     => $release['zipball_url'],
 			'icons'       => array(),
 			'banners'     => array(),
 			'requires'    => '6.0',
@@ -114,6 +117,44 @@ class Ccss_Updater {
 		);
 
 		return $transient;
+	}
+
+	/**
+	 * Ensure the extracted update folder matches the plugin directory name.
+	 *
+	 * GitHub zipball/archive URLs create folders like:
+	 *   gmatta01-critical-css-wp-<sha>/   (zipball)
+	 *   critical-css-wp-0.2.3/             (archive)
+	 *
+	 * WordPress renames these to the correct plugin directory on install.
+	 * This filter ensures it happens even when the folder name doesn't match.
+	 *
+	 * @param string $source        Source directory.
+	 * @param string $remote_source Remote source directory.
+	 * @param object $upgrader      Upgrader instance.
+	 * @param array  $hook_extra    Extra arguments.
+	 * @return string
+	 */
+	public function fix_update_source( $source, $remote_source, $upgrader, $hook_extra ) {
+		if ( ! isset( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->basename ) {
+			return $source;
+		}
+
+		$correct_dir = WP_PLUGIN_DIR . '/' . dirname( $this->basename );
+		if ( $source === $correct_dir || ! is_dir( $source ) ) {
+			return $source;
+		}
+
+		// Rename the extracted folder to match the plugin directory.
+		$new_source = dirname( $source ) . '/' . dirname( $this->basename );
+		if ( $source !== $new_source && ! file_exists( $new_source ) ) {
+			@rename( $source, $new_source );
+			if ( is_dir( $new_source ) ) {
+				return $new_source;
+			}
+		}
+
+		return $source;
 	}
 
 	/**
