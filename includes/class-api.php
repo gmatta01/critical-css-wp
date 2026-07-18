@@ -44,8 +44,9 @@ class Ccss_Api {
 
 		$response_code = wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $response_code ) {
+			$body    = wp_remote_retrieve_body( $response );
 			$message = sprintf( __( 'The API request returned HTTP %d.', 'critical-css-wp' ), $response_code );
-			ccss_log( 'API request returned ' . $response_code . ' for ' . $url );
+			ccss_log( 'API request returned ' . $response_code . ' for ' . $url . ' — body: ' . substr( $body, 0, 500 ) );
 			return array(
 				'success' => false,
 				'error'   => $message,
@@ -144,8 +145,9 @@ class Ccss_Api {
 
 		$response_code = wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $response_code ) {
+			$body    = wp_remote_retrieve_body( $response );
 			$message = sprintf( __( 'The API request returned HTTP %d.', 'critical-css-wp' ), $response_code );
-			ccss_log( 'API inline request returned ' . $response_code );
+			ccss_log( 'API inline request returned ' . $response_code . ' — body: ' . substr( $body, 0, 500 ) );
 			return array(
 				'success' => false,
 				'error'   => $message,
