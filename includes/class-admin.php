@@ -119,7 +119,7 @@ class Ccss_Admin {
 							<input type="url" id="ccss_public_base_url" name="ccss_settings[public_base_url]"
 								value="<?php echo esc_attr( $settings['public_base_url'] ?? '' ); ?>" class="regular-text"
 								placeholder="<?php echo esc_attr( site_url() ); ?>" />
-							<p class="description"><?php esc_html_e( 'Override the base URL sent to the API. Use this when your local dev domain (e.g. .local) is not reachable from the API server. Set it to your Tailscale IP or hostname.', 'critical-css-wp' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Override the base URL sent to the API. Set this to your production URL (e.g. https://yoursite.com) when testing from local dev. The plugin replaces your local domain with this before calling the API.', 'critical-css-wp' ); ?></p>
 						</td>
 					</tr>
 					<tr>

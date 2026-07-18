@@ -316,6 +316,7 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 		$site_url = get_option( 'siteurl' );
 		if ( $site_url && 0 === strpos( $url, $site_url ) ) {
 			$api_url_to_send = $public_base . substr( $url, strlen( $site_url ) );
+			ccss_log( 'URL rewritten via public_base_url: ' . $url . ' → ' . $api_url_to_send );
 		}
 	}
 
