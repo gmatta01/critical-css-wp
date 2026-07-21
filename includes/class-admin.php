@@ -88,6 +88,9 @@ class Ccss_Admin {
 		$sanitized['post_types']       = array_filter( array_map( 'sanitize_key', (array) ( $input['post_types'] ?? array() ) ) );
 		$sanitized['interval']         = in_array( $input['interval'] ?? 'daily', array( 'hourly', 'twicedaily', 'daily', 'weekly' ), true ) ? $input['interval'] : 'daily';
 		$sanitized['rebuild_days']     = max( 1, absint( $input['rebuild_days'] ?? 7 ) );
+		$sanitized['disable_cron']     = ! empty( $input['disable_cron'] ) ? 1 : 0;
+		$sanitized['rate_limit']       = max( 0, absint( $input['rate_limit'] ?? 10 ) );
+		$sanitized['request_delay']    = max( 0, absint( $input['request_delay'] ?? 3000 ) );
 		return $sanitized;
 	}
 
@@ -163,6 +166,32 @@ class Ccss_Admin {
 							<input type="number" id="ccss_rebuild_days" name="ccss_settings[rebuild_days]"
 								value="<?php echo esc_attr( $settings['rebuild_days'] ); ?>" min="1" class="small-text" />
 							<p class="description"><?php esc_html_e( 'Regenerate CSS for pages older than this many days during cron runs.', 'critical-css-wp' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ccss_disable_cron"><?php esc_html_e( 'Disable Regular Intervals', 'critical-css-wp' ); ?></label></th>
+						<td>
+							<label>
+								<input type="checkbox" id="ccss_disable_cron" name="ccss_settings[disable_cron]"
+									value="1" <?php checked( $settings['disable_cron'], 1 ); ?> />
+								<?php esc_html_e( 'Stop automatic cron-based generation. CSS will only be generated on publish or manual action.', 'critical-css-wp' ); ?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ccss_rate_limit"><?php esc_html_e( 'Rate Limit (per URL/min)', 'critical-css-wp' ); ?></label></th>
+						<td>
+							<input type="number" id="ccss_rate_limit" name="ccss_settings[rate_limit]"
+								value="<?php echo esc_attr( $settings['rate_limit'] ); ?>" min="0" class="small-text" />
+							<p class="description"><?php esc_html_e( 'Max generation attempts per URL per minute. Set to 0 to disable rate limiting.', 'critical-css-wp' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ccss_request_delay"><?php esc_html_e( 'Request Delay (ms)', 'critical-css-wp' ); ?></label></th>
+						<td>
+							<input type="number" id="ccss_request_delay" name="ccss_settings[request_delay]"
+								value="<?php echo esc_attr( $settings['request_delay'] ); ?>" min="0" step="100" class="small-text" />
+							<p class="description"><?php esc_html_e( 'Minimum gap between API requests in milliseconds. Prevents overwhelming the server. Default: 3000 (3 seconds).', 'critical-css-wp' ); ?></p>
 						</td>
 					</tr>
 				</table>

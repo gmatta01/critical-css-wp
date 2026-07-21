@@ -4,3 +4,7 @@
 node_modules/
 vendor/
 *.log
+doc/
+.lavish/
+.pi-subagents/
+Server/

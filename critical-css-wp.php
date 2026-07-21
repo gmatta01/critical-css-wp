@@ -61,6 +61,9 @@ function ccss_get_settings() {
 		'post_types'      => array( 'post', 'page' ),
 		'interval'        => 'daily',
 		'rebuild_days'    => 7,
+		'disable_cron'    => 0,
+		'rate_limit'      => 10,
+		'request_delay'   => 3000,
 	);
 
 	$settings = get_option( 'ccss_settings', array() );
@@ -278,6 +281,70 @@ function ccss_capture_page_html_and_css( $post_id ) {
  * @param bool $force   Whether to regenerate even if CSS exists.
  * @return bool Success.
  */
+/**
+ * Check rate limit: max attempts per post per hour.
+ * Returns true if the post is allowed to generate.
+ */
+function ccss_check_rate_limit( $post_id ) {
+	$max_attempts = (int) ccss_get_option( 'rate_limit', 10 );
+	if ( $max_attempts <= 0 ) {
+		return true; // No limit
+	}
+
+	$attempts = get_post_meta( $post_id, '_critical_css_attempts', true );
+	if ( ! is_array( $attempts ) ) {
+		$attempts = array();
+	}
+
+	// Remove attempts older than 1 hour
+	$cutoff = time() - HOUR_IN_SECONDS;
+	$attempts = array_values( array_filter( $attempts, function( $t ) use ( $cutoff ) {
+		return $t > $cutoff;
+	} ) );
+
+	// Check if exceeded
+	if ( count( $attempts ) >= $max_attempts ) {
+		ccss_log( 'Rate limit hit for post ' . $post_id . ': ' . count( $attempts ) . ' attempts in last hour (max ' . $max_attempts . ')' );
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Record a generation attempt for rate limiting.
+ */
+function ccss_record_attempt( $post_id ) {
+	$attempts = get_post_meta( $post_id, '_critical_css_attempts', true );
+	if ( ! is_array( $attempts ) ) {
+		$attempts = array();
+	}
+	$attempts[] = time();
+	update_post_meta( $post_id, '_critical_css_attempts', $attempts );
+}
+
+/**
+ * Respect the configured delay between API requests.
+ * Call this before each API call to enforce the gap.
+ */
+function ccss_enforce_request_delay() {
+	$delay_ms = (int) ccss_get_option( 'request_delay', 3000 );
+	if ( $delay_ms <= 0 ) {
+		return;
+	}
+
+	$last_request = (int) get_transient( 'ccss_last_request_time' );
+	$elapsed_ms   = ( time() - $last_request ) * 1000;
+
+	if ( $last_request && $elapsed_ms < $delay_ms ) {
+		$sleep_ms = $delay_ms - $elapsed_ms;
+		ccss_log( 'Enforcing request delay: sleeping ' . round( $sleep_ms ) . 'ms' );
+		usleep( (int) ( $sleep_ms * 1000 ) );
+	}
+
+	set_transient( 'ccss_last_request_time', time(), 60 );
+}
+
 function ccss_generate_for_post( $post_id, $force = false ) {
 	$post = get_post( $post_id );
 	if ( ! $post ) {
@@ -289,6 +356,11 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 	}
 
 	if ( 'publish' !== $post->post_status ) {
+		return false;
+	}
+
+	// Rate limit check (unless forced)
+	if ( ! $force && ! ccss_check_rate_limit( $post_id ) ) {
 		return false;
 	}
 
@@ -308,6 +380,9 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 	$api  = new Ccss_Api();
 	$used_url = false;
 
+	// Record attempt for rate limiting
+	ccss_record_attempt( $post_id );
+
 	// Primary method: send the page URL to the API (fast, works for public domains).
 	$api_url_to_send = $url;
 	$public_base = ccss_get_option( 'public_base_url', '' );
@@ -318,6 +393,9 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 			ccss_log( 'URL rewritten via public_base_url: ' . $url . ' → ' . $api_url_to_send );
 		}
 	}
+
+	// Enforce minimum time gap between API requests
+	ccss_enforce_request_delay();
 
 	ccss_log( 'Attempting URL-based generation for ' . $api_url_to_send );
 	$result = $api->request_css( $api_url_to_send );
@@ -333,6 +411,10 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 		$page_data = ccss_capture_page_html_and_css( $post_id );
 		if ( false !== $page_data ) {
 			ccss_log( 'Attempting inline generation for ' . $url . ' (' . round( strlen( $page_data['html'] ) / 1024, 1 ) . ' KB HTML, ' . round( strlen( $page_data['css'] ) / 1024, 1 ) . ' KB CSS)' );
+
+			// Enforce delay before the inline API call too
+			ccss_enforce_request_delay();
+
 			$result = $api->request_css_chunked( $page_data['html'], $page_data['css'], $api_url_to_send );
 			if ( $result['success'] ) {
 				$used_url = true;
@@ -430,6 +512,9 @@ class Ccss_Plugin {
 			'post_types'      => array( 'post', 'page' ),
 			'interval'        => 'daily',
 			'rebuild_days'    => 7,
+			'disable_cron'    => 0,
+			'rate_limit'      => 10,
+			'request_delay'   => 3000,
 		);
 		if ( false === get_option( 'ccss_settings' ) ) {
 			add_option( 'ccss_settings', $defaults );
