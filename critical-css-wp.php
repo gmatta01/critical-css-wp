@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Critical CSS for WP
  * Description: Generate and inject critical CSS for published WordPress content using a configurable API endpoint.
- * Version: 0.2.9
+ * Version: 0.2.10
  * Author: G Matta
  * License: GPL-2.0-or-later
  * Text Domain: critical-css-wp
@@ -24,7 +24,12 @@ if ( ! defined( 'CCSS_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'CCSS_VERSION' ) ) {
-	define( 'CCSS_VERSION', '0.2.9' );
+	define( 'CCSS_VERSION', '0.2.10' );
+}
+
+/** Reject API responses larger than this (bytes) — blocks poisoned regenerations. */
+if ( ! defined( 'CCSS_MAX_CSS_BYTES' ) ) {
+	define( 'CCSS_MAX_CSS_BYTES', 250 * 1024 );
 }
 
 require_once CCSS_PLUGIN_DIR . 'includes/class-api.php';
@@ -61,6 +66,9 @@ function ccss_get_settings() {
 		'post_types'      => array( 'post', 'page' ),
 		'interval'        => 'daily',
 		'rebuild_days'    => 7,
+		'disable_cron'    => 0,
+		'rate_limit'      => 10,
+		'request_delay'   => 3000,
 	);
 
 	$settings = get_option( 'ccss_settings', array() );
@@ -185,8 +193,9 @@ function ccss_capture_page_html_and_css( $post_id ) {
 	 */
 	$html = apply_filters( 'ccss_pre_render_html', null, $post_id );
 	if ( null === $html ) {
-		// Fetch the rendered page.
-		$response = wp_remote_get( $url, array(
+		// Fetch without previously injected critical CSS.
+		$fetch_url = add_query_arg( 'ccss_bypass', '1', $url );
+		$response  = wp_remote_get( $fetch_url, array(
 			'timeout'   => 30,
 			'sslverify' => false,
 		) );
@@ -278,6 +287,70 @@ function ccss_capture_page_html_and_css( $post_id ) {
  * @param bool $force   Whether to regenerate even if CSS exists.
  * @return bool Success.
  */
+/**
+ * Check rate limit: max attempts per post per hour.
+ * Returns true if the post is allowed to generate.
+ */
+function ccss_check_rate_limit( $post_id ) {
+	$max_attempts = (int) ccss_get_option( 'rate_limit', 10 );
+	if ( $max_attempts <= 0 ) {
+		return true; // No limit
+	}
+
+	$attempts = get_post_meta( $post_id, '_critical_css_attempts', true );
+	if ( ! is_array( $attempts ) ) {
+		$attempts = array();
+	}
+
+	// Remove attempts older than 1 hour
+	$cutoff = time() - HOUR_IN_SECONDS;
+	$attempts = array_values( array_filter( $attempts, function( $t ) use ( $cutoff ) {
+		return $t > $cutoff;
+	} ) );
+
+	// Check if exceeded
+	if ( count( $attempts ) >= $max_attempts ) {
+		ccss_log( 'Rate limit hit for post ' . $post_id . ': ' . count( $attempts ) . ' attempts in last hour (max ' . $max_attempts . ')' );
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Record a generation attempt for rate limiting.
+ */
+function ccss_record_attempt( $post_id ) {
+	$attempts = get_post_meta( $post_id, '_critical_css_attempts', true );
+	if ( ! is_array( $attempts ) ) {
+		$attempts = array();
+	}
+	$attempts[] = time();
+	update_post_meta( $post_id, '_critical_css_attempts', $attempts );
+}
+
+/**
+ * Respect the configured delay between API requests.
+ * Call this before each API call to enforce the gap.
+ */
+function ccss_enforce_request_delay() {
+	$delay_ms = (int) ccss_get_option( 'request_delay', 3000 );
+	if ( $delay_ms <= 0 ) {
+		return;
+	}
+
+	$last_request = (int) get_transient( 'ccss_last_request_time' );
+	$elapsed_ms   = ( time() - $last_request ) * 1000;
+
+	if ( $last_request && $elapsed_ms < $delay_ms ) {
+		$sleep_ms = $delay_ms - $elapsed_ms;
+		ccss_log( 'Enforcing request delay: sleeping ' . round( $sleep_ms ) . 'ms' );
+		usleep( (int) ( $sleep_ms * 1000 ) );
+	}
+
+	set_transient( 'ccss_last_request_time', time(), 60 );
+}
+
 function ccss_generate_for_post( $post_id, $force = false ) {
 	$post = get_post( $post_id );
 	if ( ! $post ) {
@@ -289,6 +362,11 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 	}
 
 	if ( 'publish' !== $post->post_status ) {
+		return false;
+	}
+
+	// Rate limit check (unless forced)
+	if ( ! $force && ! ccss_check_rate_limit( $post_id ) ) {
 		return false;
 	}
 
@@ -308,6 +386,9 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 	$api  = new Ccss_Api();
 	$used_url = false;
 
+	// Record attempt for rate limiting
+	ccss_record_attempt( $post_id );
+
 	// Primary method: send the page URL to the API (fast, works for public domains).
 	$api_url_to_send = $url;
 	$public_base = ccss_get_option( 'public_base_url', '' );
@@ -318,6 +399,12 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 			ccss_log( 'URL rewritten via public_base_url: ' . $url . ' → ' . $api_url_to_send );
 		}
 	}
+
+	// Bypass injected critical CSS so regenerations do not compound.
+	$api_url_to_send = add_query_arg( 'ccss_bypass', '1', $api_url_to_send );
+
+	// Enforce minimum time gap between API requests
+	ccss_enforce_request_delay();
 
 	ccss_log( 'Attempting URL-based generation for ' . $api_url_to_send );
 	$result = $api->request_css( $api_url_to_send );
@@ -333,6 +420,10 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 		$page_data = ccss_capture_page_html_and_css( $post_id );
 		if ( false !== $page_data ) {
 			ccss_log( 'Attempting inline generation for ' . $url . ' (' . round( strlen( $page_data['html'] ) / 1024, 1 ) . ' KB HTML, ' . round( strlen( $page_data['css'] ) / 1024, 1 ) . ' KB CSS)' );
+
+			// Enforce delay before the inline API call too
+			ccss_enforce_request_delay();
+
 			$result = $api->request_css_chunked( $page_data['html'], $page_data['css'], $api_url_to_send );
 			if ( $result['success'] ) {
 				$used_url = true;
@@ -350,6 +441,21 @@ function ccss_generate_for_post( $post_id, $force = false ) {
 		update_post_meta( $post_id, '_critical_css_generated_at', 0 );
 		delete_post_meta( $post_id, '_critical_css' );
 		ccss_log( 'Critical CSS generation failed for ' . $url . ': ' . $result['error'] );
+		return false;
+	}
+
+	$css_bytes = strlen( $result['css'] );
+	if ( $css_bytes > CCSS_MAX_CSS_BYTES ) {
+		$error = sprintf(
+			/* translators: 1: CSS size in KB, 2: max size in KB */
+			__( 'Critical CSS too large (%1$s KB, max %2$s KB). Not stored.', 'critical-css-wp' ),
+			round( $css_bytes / 1024, 1 ),
+			round( CCSS_MAX_CSS_BYTES / 1024 )
+		);
+		update_post_meta( $post_id, '_critical_css_error', $error );
+		update_post_meta( $post_id, '_critical_css_generated_at', 0 );
+		delete_post_meta( $post_id, '_critical_css' );
+		ccss_log( 'Rejected oversized critical CSS for ' . $url . ': ' . $css_bytes . ' bytes' );
 		return false;
 	}
 
@@ -430,6 +536,9 @@ class Ccss_Plugin {
 			'post_types'      => array( 'post', 'page' ),
 			'interval'        => 'daily',
 			'rebuild_days'    => 7,
+			'disable_cron'    => 0,
+			'rate_limit'      => 10,
+			'request_delay'   => 3000,
 		);
 		if ( false === get_option( 'ccss_settings' ) ) {
 			add_option( 'ccss_settings', $defaults );

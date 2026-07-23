@@ -16,8 +16,15 @@ class Ccss_Cron {
 	}
 
 	public function schedule_event() {
-		$interval = ccss_get_option( 'interval', 'daily' );
+		$disabled = (bool) ccss_get_option( 'disable_cron', 0 );
 		$this->clear_schedule();
+
+		if ( $disabled ) {
+			ccss_log( 'Cron-based generation is disabled by setting' );
+			return;
+		}
+
+		$interval = ccss_get_option( 'interval', 'daily' );
 		wp_schedule_event( time() + 60, $interval, 'ccss_run_scheduled_generation' );
 	}
 
@@ -46,9 +53,16 @@ class Ccss_Cron {
 	}
 
 	public function run_scheduled_generation() {
+		$disabled = (bool) ccss_get_option( 'disable_cron', 0 );
+		if ( $disabled ) {
+			ccss_log( 'Scheduled generation skipped: disabled in settings' );
+			return;
+		}
+
 		$post_types = ccss_get_enabled_post_types();
 		$threshold_days = (int) ccss_get_option( 'rebuild_days', 7 );
 		$cutoff = time() - ( $threshold_days * DAY_IN_SECONDS );
+		$request_delay = max( 1, (int) ccss_get_option( 'request_delay', 3000 ) );
 
 		$posts = get_posts(
 			array(
@@ -72,6 +86,9 @@ class Ccss_Cron {
 			if ( ccss_generate_for_post( $post_id ) ) {
 				$processed++;
 			}
+
+			// Enforce delay between posts to avoid overwhelming the API server
+			sleep( $request_delay / 1000 );
 		}
 	}
 

@@ -13,7 +13,7 @@ class Ccss_Frontend {
 	}
 
 	public function output_inline_css() {
-		if ( ! is_singular() ) {
+		if ( ! is_singular() || $this->should_bypass() ) {
 			return;
 		}
 
@@ -59,7 +59,7 @@ class Ccss_Frontend {
 	}
 
 	public function prepare_style_deferral() {
-		if ( ! is_singular() ) {
+		if ( ! is_singular() || $this->should_bypass() ) {
 			return;
 		}
 
@@ -120,5 +120,13 @@ class Ccss_Frontend {
 
 	private function should_skip_deferral() {
 		return is_admin() || is_preview() || has_filter( 'autoptimize_filter_css_defer' );
+	}
+
+	/**
+	 * Generation crawls use ?ccss_bypass=1 so previously injected critical CSS
+	 * is not re-ingested (which caused multi-MB compounding on regenerate).
+	 */
+	private function should_bypass() {
+		return isset( $_GET['ccss_bypass'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	}
 }
