@@ -6,10 +6,37 @@ class Ccss_Frontend {
 	private $defer_handles = array();
 
 	public function init() {
+		add_action( 'template_redirect', array( $this, 'maybe_send_bypass_headers' ), 0 );
 		add_action( 'wp_head', array( $this, 'output_inline_css' ), 0 );
 		add_action( 'wp_print_styles', array( $this, 'prepare_style_deferral' ), PHP_INT_MAX );
 		add_filter( 'style_loader_tag', array( $this, 'maybe_defer_style' ), 10, 4 );
 		add_action( 'wp_footer', array( $this, 'output_debug_info' ), 999 );
+	}
+
+	/**
+	 * When the generator crawls with bypass, force a cache miss so page caches
+	 * that ignore ?ccss_bypass=1 do not serve HTML that still has critical CSS.
+	 */
+	public function maybe_send_bypass_headers() {
+		if ( ! $this->should_bypass() ) {
+			return;
+		}
+
+		if ( ! headers_sent() ) {
+			nocache_headers();
+			header( 'X-CCSS-Bypass: 1' );
+		}
+
+		// LiteSpeed Cache
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		do_action( 'litespeed_control_set_nocache', 'ccss bypass' );
+
+		// WP Rocket
+		if ( ! defined( 'DONOTROCKETOPTIMIZE' ) ) {
+			define( 'DONOTROCKETOPTIMIZE', true );
+		}
 	}
 
 	public function output_inline_css() {
@@ -123,10 +150,15 @@ class Ccss_Frontend {
 	}
 
 	/**
-	 * Generation crawls use ?ccss_bypass=1 so previously injected critical CSS
-	 * is not re-ingested (which caused multi-MB compounding on regenerate).
+	 * Generation crawls use ?ccss_bypass=1 and/or X-CCSS-Bypass header so
+	 * previously injected critical CSS is not re-ingested. Header covers
+	 * page caches that ignore query strings.
 	 */
 	private function should_bypass() {
-		return isset( $_GET['ccss_bypass'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['ccss_bypass'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return true;
+		}
+		$header = isset( $_SERVER['HTTP_X_CCSS_BYPASS'] ) ? (string) $_SERVER['HTTP_X_CCSS_BYPASS'] : '';
+		return '' !== $header && '0' !== $header;
 	}
 }

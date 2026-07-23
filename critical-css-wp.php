@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Critical CSS for WP
  * Description: Generate and inject critical CSS for published WordPress content using a configurable API endpoint.
- * Version: 0.2.10
+ * Version: 0.2.11
  * Author: G Matta
  * License: GPL-2.0-or-later
  * Text Domain: critical-css-wp
@@ -24,7 +24,7 @@ if ( ! defined( 'CCSS_PLUGIN_URL' ) ) {
 }
 
 if ( ! defined( 'CCSS_VERSION' ) ) {
-	define( 'CCSS_VERSION', '0.2.10' );
+	define( 'CCSS_VERSION', '0.2.11' );
 }
 
 /** Reject API responses larger than this (bytes) — blocks poisoned regenerations. */
